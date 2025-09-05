@@ -1,30 +1,45 @@
--- AutoKings v1.0
+-- AutoKings v1.0.1
 
 -- Variable global para la ranura por defecto (12)
 AutoKingsSlot = 12
 
+-- Función para mostrar ayuda
+local function ShowHelp()
+  print("|cff00ff00[AutoKings Help]|r")
+  print("Use /autokings slot X  - Set the action bar slot where Greater Blessing of Kings is located.")
+  print("Use /autokings         - Cast Greater Blessing of Kings on the class with most players in range.")
+end
+
+-- Registrar comando /ak para ayuda
+SLASH_AUTOKINGS_HELP1 = "/ak"
+SlashCmdList["AUTOKINGS_HELP"] = function()
+  ShowHelp()
+end
+
+
 local f = CreateFrame("Frame")
+f:RegisterEvent("PLAYER_LOGIN")
+f:SetScript("OnEvent", function()
+  print("|cff00ff00[AutoKings]|r Addon loaded!")
 
-f:RegisterEvent("ADDON_LOADED")
-f:SetScript("OnEvent", function(self, event, name)
-  if name == "AutoKings" then
-    -- Registrar comando slash /autokings
-    SLASH_AUTOKINGS1 = "/autokings"
-    SlashCmdList["AUTOKINGS"] = function(msg)
-      local args = {}
-      for word in msg:gmatch("%S+") do
-        table.insert(args, word)
-      end
+  -- Register slash command
+  SLASH_AUTOKINGS1 = "/autokings"
+  SlashCmdList["AUTOKINGS"] = function(msg)
+    msg = msg or ""
+    local args = {}
+    for word in string.gfind(msg, "%S+") do
+      table.insert(args, word)
+    end
 
-      if args[1] == "slot" and tonumber(args[2]) then
-        AutoKingsSlot = tonumber(args[2])
-        print("|cff00ff00[AutoKings]|r Slot de acción cambiado a: " .. AutoKingsSlot)
-      else
-        CastKings()
-      end
+    if args[1] == "slot" and tonumber(args[2]) then
+      AutoKingsSlot = tonumber(args[2])
+      print("|cff00ff00[AutoKings]|r Action slot changed to: " .. AutoKingsSlot)
+    else
+      CastKings()
     end
   end
 end)
+
 
 function CastKings()
   local classCount = {}

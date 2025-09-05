@@ -20,10 +20,11 @@ It helps optimize blessing distribution in groups and raids by targeting the cla
 
 | Command | Description |
 |--------|-------------|
-| `/script CastKings()` | Casts the blessing on the class with the most players in range. |
+| `/ak` | Displays this help message in-game |
+| `/autokings slot [number]` | Sets the **action bar slot** where **Greater Blessing of Kings** is placed. Default is slot **12**. |
+| `/autokings` | Casts the blessing on the class with the most players in range. |
 | `/script AutoKingsSlot = X` | Sets the **action bar slot** where **Greater Blessing of Kings** is placed. Default is slot **12**. |
-| Dont work ATM`/autokings` | Casts the blessing on the class with the most players in range. |
-| Dont work ATM`/autokings slot [number]` | Sets the **action bar slot** where **Greater Blessing of Kings** is placed. Default is slot **12**. |
+| `/script CastKings()` | Casts the blessing on the class with the most players in range. |
 
 > 💡 **Example:**  
 > If the spell is on action button 6, type:  
@@ -31,10 +32,47 @@ It helps optimize blessing distribution in groups and raids by targeting the cla
 > or  
 > `/script AutoKingsSlot = 6`
 
+Here you can see where the **ActionID slots** are located on your action bars:
+
+| Action Bar               | Slot Range  |
+|--------------------------|-------------|
+| Action Bar Page 1        | 1–12        |
+| Action Bar Page 2        | 13–24       |
+| Right Action Bar (Page 3)| 25–36       |
+| Right Action Bar 2 (Page 4) | 37–48    |
+| Bottom Right Action Bar (Page 5) | 49–60 |
+| Bottom Left Action Bar (Page 6)  | 61–72 |
+
+Make sure **Greater Blessing of Kings** is placed in one of these slots, and tell the addon which one by using `/autokings slot X`. 
+---
+
+## 💾 Persistence
+
+Your chosen action slot is saved automatically and will persist across sessions.
+
 ---
 
 ## 📦 Installation
 
-1. Download or clone the repository:
-   ```bash
-   git clone https://github.com/Reniry/AutoKings.git
+1. Download the release ZIP:
+   `https://github.com/Reniry/AutoKings/archive/refs/heads/main.zip`
+
+2. Extract into your Interface/AddOns folder
+   → Path: `World of Warcraft\_classic_\Interface\AddOns\AutoKings`
+
+3. Ensure the folder is named exactly `AutoKings`
+
+4. Restart WoW or type `/reload` in-game
+
+---
+
+## 👤 Author
+
+Created by **Reniry**  
+Version: **1.0.1**
+
+---
+
+## 📜 License
+
+This project is licensed under the MIT License. See [LICENSE.txt](LICENSE.txt) for details.
