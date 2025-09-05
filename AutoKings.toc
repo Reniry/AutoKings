@@ -1,0 +1,7 @@
+## Interface: 11200
+## Title: AutoKings
+## Notes: Auto-casts Greater Blessing of Kings on the most populated class in range
+## Author: TuNombre
+## Version: 1.0
+
+AutoKings.lua
