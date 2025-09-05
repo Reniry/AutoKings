@@ -1,4 +1,4 @@
--- AutoKings v1.0.1
+-- AutoKings v1.01
 
 -- Variable global para la ranura por defecto (12)
 AutoKingsSlot = 12
@@ -22,6 +22,11 @@ f:RegisterEvent("PLAYER_LOGIN")
 f:SetScript("OnEvent", function()
   print("|cff00ff00[AutoKings]|r Addon loaded!")
 
+   -- Load saved value or fallback
+  if AutoKingsDB and AutoKingsDB.slot then
+    AutoKingsSlot = AutoKingsDB.slot
+  end
+
   -- Register slash command
   SLASH_AUTOKINGS1 = "/autokings"
   SlashCmdList["AUTOKINGS"] = function(msg)
@@ -33,6 +38,8 @@ f:SetScript("OnEvent", function()
 
     if args[1] == "slot" and tonumber(args[2]) then
       AutoKingsSlot = tonumber(args[2])
+      AutoKingsDB = AutoKingsDB or {}
+      AutoKingsDB.slot = AutoKingsSlot
       print("|cff00ff00[AutoKings]|r Action slot changed to: " .. AutoKingsSlot)
     else
       CastKings()

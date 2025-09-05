@@ -2,6 +2,7 @@
 ## Title: AutoKings
 ## Notes: Auto-casts Greater Blessing of Kings on the most populated class in range
 ## Author: Reniry
-## Version: 1.0.1
+## Version: 1.01
+## SavedVariables: AutoKingsDB
 
 AutoKings.lua
