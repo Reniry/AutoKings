@@ -49,10 +49,19 @@ end)
 
 
 function CastKings()
-  local classCount = {}
-  local classInRange = {}
-  local max = 1
-  local target = "player"
+  local classInRangeCount = {}
+  local classToTarget = {}
+  local bestClass = nil
+  local bestCount = 0
+  local bestTarget = nil
+
+  -- Save current target (enemy or friendly)
+  local hadTarget = UnitExists("target")
+  local previousTarget = nil
+  if hadTarget then
+    previousTarget = UnitName("target")
+  end
+
   local groupType, groupMembers
 
   if UnitInRaid("player") then
@@ -65,26 +74,42 @@ function CastKings()
 
   for i = 1, groupMembers do
     local unit = groupType .. i
-    local _, class = UnitClass(unit)
-    if class and UnitHealth(unit) > 1 then
-      classCount[class] = (classCount[class] or 0) + 1
-      if not classInRange[class] then
+    if UnitExists(unit) and UnitHealth(unit) > 1 then
+      local _, class = UnitClass(unit)
+      if class then
+        -- Temporarily target to check range
         TargetUnit(unit)
         if IsActionInRange(AutoKingsSlot) == 1 then
-          classInRange[class] = unit
+          classInRangeCount[class] = (classInRangeCount[class] or 0) + 1
+          classToTarget[class] = unit
         end
-        TargetLastTarget()
-      end
-      if classCount[class] > max and classInRange[class] then
-        max = classCount[class]
-        target = classInRange[class]
       end
     end
   end
 
-  TargetUnit(target)
-  CastSpellByName("Greater Blessing of Kings")
-  TargetLastTarget()
+  -- Restore previous target if needed
+  if hadTarget and previousTarget then
+    TargetByName(previousTarget, true)
+  else
+    ClearTarget()
+  end
+
+  -- Pick the best class
+  for class, count in pairs(classInRangeCount) do
+    if count > bestCount then
+      bestCount = count
+      bestClass = class
+      bestTarget = classToTarget[class]
+    end
+  end
+
+  if bestTarget then
+    -- Cast the spell without changing target
+    CastSpellByName("Greater Blessing of Kings", bestTarget)
+    print("|cff00ff00[AutoKings]|r Casted on " .. bestClass .. " (" .. bestCount .. " nearby).")
+  else
+    print("|cffff0000[AutoKings]|r No valid targets in range.")
+  end
 end
 
 
