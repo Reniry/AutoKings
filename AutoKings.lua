@@ -1,7 +1,9 @@
--- AutoKings v1.01
+-- AutoKings v1.0
 
 -- Variable global para la ranura por defecto (12)
 AutoKingsSlot = 12
+AutoKingsDebug = false
+
 
 -- Función para mostrar ayuda
 local function ShowHelp()
@@ -23,9 +25,14 @@ f:SetScript("OnEvent", function()
   print("|cff00ff00[AutoKings]|r Addon loaded!")
 
    -- Load saved value or fallback
-  if AutoKingsDB and AutoKingsDB.slot then
+  AutoKingsDB = AutoKingsDB or {}
+
+  if AutoKingsDB.slot then
     AutoKingsSlot = AutoKingsDB.slot
+  else
+    AutoKingsDB.slot = AutoKingsSlot  -- guarda el valor por defecto (12) si no hay nada
   end
+
 
   -- Register slash command
   SLASH_AUTOKINGS1 = "/autokings"
@@ -104,11 +111,15 @@ function CastKings()
   end
 
   if bestTarget then
-    -- Cast the spell without changing target
+  -- Cast the spell without changing target
     CastSpellByName("Greater Blessing of Kings", bestTarget)
-    print("|cff00ff00[AutoKings]|r Casted on " .. bestClass .. " (" .. bestCount .. " nearby).")
+
+    -- Optional debug output
+    if AutoKingsDebug then
+      print("|cff00ff00[AutoKings]|r Casted on " .. bestClass .. " (" .. bestCount .. " nearby).")
+    end
   else
-    print("|cffff0000[AutoKings]|r No valid targets in range.")
+  print("|cffff0000[AutoKings]|r No valid targets in range.")
   end
 end
 

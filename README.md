@@ -69,7 +69,7 @@ Your chosen action slot is saved automatically and will persist across sessions.
 ## 👤 Author
 
 Created by **Reniry**  
-Version: **1.01**
+Version: **1.0**
 
 ---
 
