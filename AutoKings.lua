@@ -2,6 +2,10 @@
 -- Author: Enhanced by Reniry
 -- Compatible with WoW 1.12 (Turtle WoW)
 
+-- AutoKings v1.1 - Optimized & Fixed
+-- Author: Enhanced by Reniry
+-- Compatible with WoW 1.12 (Turtle WoW)
+
 AutoKingsSlot = 12
 AutoKingsDebug = false
 AutoKingsCache = {
@@ -18,7 +22,6 @@ local function AutoKings_Print(msg)
 end
 
 local function GetCurrentTime()
-    -- En WoW 1.12 no existe GetTime(), usamos GetFramerate() como aproximación
     return time()
 end
 
@@ -26,11 +29,14 @@ end
 -- SISTEMA DE CACHÉ SIMPLE
 -- ========================================
 local function IsValidCache()
-    return AutoKingsCache.lastUpdate > 0
+    local currentTime = GetCurrentTime()
+    return AutoKingsCache.lastUpdate > 0 and 
+           (currentTime - AutoKingsCache.lastUpdate) < AutoKingsCache.duration
 end
 
 local function InvalidateCache()
     AutoKingsCache.lastUpdate = 0
+    AutoKingsCache.data = {}
 end
 
 local function UpdateCache()
@@ -45,16 +51,22 @@ local function UpdateCache()
     local classToTarget = {}
     local groupType, groupMembers
     
-    -- Determinar tipo de grupo
+    -- Determinar tipo de grupo y cantidad de miembros
     if GetNumRaidMembers() > 0 then
         groupType = "raid"
         groupMembers = GetNumRaidMembers()
     elseif GetNumPartyMembers() > 0 then
-        groupType = "party"
+        groupType = "party" 
         groupMembers = GetNumPartyMembers()
     else
-        -- Solo el jugador
-        AutoKingsCache.data = {classCount = {}, targets = {}}
+        -- Solo el jugador - revisar también al player
+        local _, playerClass = UnitClass("player")
+        if playerClass then
+            classInRangeCount[playerClass] = 1
+            classToTarget[playerClass] = "player"
+        end
+        
+        AutoKingsCache.data = {classCount = classInRangeCount, targets = classToTarget}
         AutoKingsCache.lastUpdate = currentTime
         return AutoKingsCache.data
     end
@@ -66,18 +78,60 @@ local function UpdateCache()
         previousTarget = UnitName("target")
     end
     
-    -- Procesar miembros
-    for i = 1, groupMembers do
-        local unit = groupType .. i
-        if UnitExists(unit) and UnitHealth(unit) > 1 then
-            local _, class = UnitClass(unit)
-            if class then
-                -- Target temporal para verificar rango
-                TargetUnit(unit)
-                if IsActionInRange(AutoKingsSlot) == 1 then
-                    classInRangeCount[class] = (classInRangeCount[class] or 0) + 1
-                    if not classToTarget[class] then
-                        classToTarget[class] = unit
+    -- IMPORTANTE: En raids, el índice 0 es el player, del 1 al 39 son los demás
+    -- En party, el player no está incluido en la numeración
+    
+    if groupType == "raid" then
+        -- Procesar al player primero (raid0 no existe, usar "player")
+        local _, playerClass = UnitClass("player")
+        if playerClass and UnitHealth("player") > 1 then
+            -- Para el player, siempre está "en rango" de sí mismo
+            classInRangeCount[playerClass] = (classInRangeCount[playerClass] or 0) + 1
+            if not classToTarget[playerClass] then
+                classToTarget[playerClass] = "player"
+            end
+        end
+        
+        -- Procesar miembros del raid (1 a 40, excluyendo al player)
+        for i = 1, 40 do
+            local unit = "raid" .. i
+            if UnitExists(unit) and UnitHealth(unit) > 1 then
+                local _, class = UnitClass(unit)
+                if class then
+                    -- Target temporal para verificar rango
+                    TargetUnit(unit)
+                    if IsActionInRange(AutoKingsSlot) == 1 then
+                        classInRangeCount[class] = (classInRangeCount[class] or 0) + 1
+                        if not classToTarget[class] then
+                            classToTarget[class] = unit
+                        end
+                    end
+                end
+            end
+        end
+    else
+        -- Para party: incluir al player + party members
+        local _, playerClass = UnitClass("player")
+        if playerClass and UnitHealth("player") > 1 then
+            classInRangeCount[playerClass] = (classInRangeCount[playerClass] or 0) + 1
+            if not classToTarget[playerClass] then
+                classToTarget[playerClass] = "player"
+            end
+        end
+        
+        -- Procesar miembros del party (1 a 4)
+        for i = 1, 4 do
+            local unit = "party" .. i
+            if UnitExists(unit) and UnitHealth(unit) > 1 then
+                local _, class = UnitClass(unit)
+                if class then
+                    -- Target temporal para verificar rango
+                    TargetUnit(unit)
+                    if IsActionInRange(AutoKingsSlot) == 1 then
+                        classInRangeCount[class] = (classInRangeCount[class] or 0) + 1
+                        if not classToTarget[class] then
+                            classToTarget[class] = unit
+                        end
                     end
                 end
             end
@@ -97,6 +151,19 @@ local function UpdateCache()
         targets = classToTarget
     }
     AutoKingsCache.lastUpdate = currentTime
+    
+    if AutoKingsDebug then
+        local totalPlayers = 0
+        local totalClasses = 0
+        if AutoKingsCache.data.classCount then
+            for class, count in pairs(AutoKingsCache.data.classCount) do
+                totalPlayers = totalPlayers + count
+                totalClasses = totalClasses + 1
+            end
+        end
+        AutoKings_Print("Cache actualizado - " .. totalClasses .. " clases diferentes, " .. 
+                       totalPlayers .. " jugadores totales")
+    end
     
     return AutoKingsCache.data
 end
@@ -141,7 +208,7 @@ function CastKings()
         return
     end
     
-    -- Encontrar la mejor clase
+    -- Encontrar la mejor clase (más jugadores)
     local bestClass = nil
     local bestCount = 0
     local bestTarget = nil
@@ -155,33 +222,37 @@ function CastKings()
     end
     
     if bestTarget then
+        -- Target al mejor objetivo antes de lanzar
+        if bestTarget ~= "player" then
+            TargetUnit(bestTarget)
+        end
+        
         -- Lanzar el hechizo
-        CastSpellByName(spellName, bestTarget)
+        CastSpellByName(spellName)
         
         if AutoKingsDebug then
-            AutoKings_Print("Lanzado en " .. bestClass .. " (" .. bestCount .. " jugadores cerca)")
+            AutoKings_Print("Lanzado Greater Blessing of Kings en " .. bestClass .. 
+                           " (" .. bestCount .. " jugadores)")
         end
+        
+        -- Invalidar caché después del cast exitoso
+        InvalidateCache()
     else
         AutoKings_Print("No se encontró objetivo válido.")
     end
 end
 
 -- ========================================
--- INVALIDAR CACHÉ EN EVENTOS
--- ========================================
-local function InvalidateCache()
-    AutoKingsCache.lastUpdate = 0
-end
-
--- ========================================
 -- COMANDOS Y AYUDA
 -- ========================================
 local function ShowHelp()
-    AutoKings_Print("=== AutoKings v2.0 - Ayuda ===")
+    AutoKings_Print("=== AutoKings v1.1 - Ayuda ===")
     DEFAULT_CHAT_FRAME:AddMessage("|cffFFFF00Comandos disponibles:|r")
     DEFAULT_CHAT_FRAME:AddMessage("  /autokings o /ak           - Lanzar Greater Blessing of Kings")
     DEFAULT_CHAT_FRAME:AddMessage("  /ak debug                  - Activar/desactivar debug")
     DEFAULT_CHAT_FRAME:AddMessage("  /ak status                 - Mostrar estado actual")
+    DEFAULT_CHAT_FRAME:AddMessage("  /ak slot [numero]          - Cambiar slot de acción")
+    DEFAULT_CHAT_FRAME:AddMessage("  /ak cache [segundos]       - Cambiar duración del caché")
     DEFAULT_CHAT_FRAME:AddMessage("  /ak help                   - Mostrar esta ayuda")
 end
 
@@ -191,12 +262,18 @@ local function ShowStatus()
     DEFAULT_CHAT_FRAME:AddMessage("Debug: " .. (AutoKingsDebug and "ON" or "OFF"))
     DEFAULT_CHAT_FRAME:AddMessage("Caché: " .. AutoKingsCache.duration .. " segundos")
     
+    -- Forzar actualización del caché para mostrar estado actual
+    InvalidateCache()
     local cacheData = UpdateCache()
+    
     if cacheData.classCount and next(cacheData.classCount) then
         DEFAULT_CHAT_FRAME:AddMessage("|cffFFFF00Clases en rango:|r")
+        local totalPlayers = 0
         for class, count in pairs(cacheData.classCount) do
             DEFAULT_CHAT_FRAME:AddMessage("  " .. class .. ": " .. count .. " jugadores")
+            totalPlayers = totalPlayers + count
         end
+        DEFAULT_CHAT_FRAME:AddMessage("|cffFFFFFFTotal: " .. totalPlayers .. " jugadores|r")
     else
         DEFAULT_CHAT_FRAME:AddMessage("No hay jugadores en rango.")
     end
@@ -285,140 +362,9 @@ AutoKingsFrame:SetScript("OnEvent", function()
         SLASH_AUTOKINGS2 = "/ak"
         SlashCmdList["AUTOKINGS"] = HandleCommand
         
-        AutoKings_Print("v2.0 cargado! Usa /ak help para ver comandos.")
+        AutoKings_Print("v1.1 cargado! Usa /ak help para ver comandos.")
         
     elseif event == "RAID_ROSTER_UPDATE" or event == "PARTY_MEMBERS_CHANGED" then
         InvalidateCache()
     end
 end)
-
---]]
-
---[[ -- AutoKings v1.0
-
--- Variable global para la ranura por defecto (12)
-AutoKingsSlot = 12
-AutoKingsDebug = false
-
-
--- Función para mostrar ayuda
-local function ShowHelp()
-  print("|cff00ff00[AutoKings Help]|r")
-  print("Use /autokings slot X  - Set the action bar slot where Greater Blessing of Kings is located.")
-  print("Use /autokings         - Cast Greater Blessing of Kings on the class with most players in range.")
-end
-
--- Registrar comando /ak para ayuda
-SLASH_AUTOKINGS_HELP1 = "/ak"
-SlashCmdList["AUTOKINGS_HELP"] = function()
-  ShowHelp()
-end
-
-
-local f = CreateFrame("Frame")
-f:RegisterEvent("PLAYER_LOGIN")
-f:SetScript("OnEvent", function()
-  print("|cff00ff00[AutoKings]|r Addon loaded!")
-
-   -- Load saved value or fallback
-  AutoKingsDB = AutoKingsDB or {}
-
-  if AutoKingsDB.slot then
-    AutoKingsSlot = AutoKingsDB.slot
-  else
-    AutoKingsDB.slot = AutoKingsSlot  -- guarda el valor por defecto (12) si no hay nada
-  end
-
-
-  -- Register slash command
-  SLASH_AUTOKINGS1 = "/autokings"
-  SlashCmdList["AUTOKINGS"] = function(msg)
-    msg = msg or ""
-    local args = {}
-    for word in string.gfind(msg, "%S+") do
-      table.insert(args, word)
-    end
-
-    if args[1] == "slot" and tonumber(args[2]) then
-      AutoKingsSlot = tonumber(args[2])
-      AutoKingsDB = AutoKingsDB or {}
-      AutoKingsDB.slot = AutoKingsSlot
-      print("|cff00ff00[AutoKings]|r Action slot changed to: " .. AutoKingsSlot)
-    else
-      CastKings()
-    end
-  end
-end)
-
-
-function CastKings()
-  local classInRangeCount = {}
-  local classToTarget = {}
-  local bestClass = nil
-  local bestCount = 0
-  local bestTarget = nil
-
-  -- Save current target (enemy or friendly)
-  local hadTarget = UnitExists("target")
-  local previousTarget = nil
-  if hadTarget then
-    previousTarget = UnitName("target")
-  end
-
-  local groupType, groupMembers
-
-  if UnitInRaid("player") then
-    groupType = "raid"
-    groupMembers = GetNumRaidMembers()
-  else
-    groupType = "party"
-    groupMembers = GetNumPartyMembers()
-  end
-
-  for i = 1, groupMembers do
-    local unit = groupType .. i
-    if UnitExists(unit) and UnitHealth(unit) > 1 then
-      local _, class = UnitClass(unit)
-      if class then
-        -- Temporarily target to check range
-        TargetUnit(unit)
-        if IsActionInRange(AutoKingsSlot) == 1 then
-          classInRangeCount[class] = (classInRangeCount[class] or 0) + 1
-          classToTarget[class] = unit
-        end
-      end
-    end
-  end
-
-  -- Restore previous target if needed
-  if hadTarget and previousTarget then
-    TargetByName(previousTarget, true)
-  else
-    ClearTarget()
-  end
-
-  -- Pick the best class
-  for class, count in pairs(classInRangeCount) do
-    if count > bestCount then
-      bestCount = count
-      bestClass = class
-      bestTarget = classToTarget[class]
-    end
-  end
-
-  if bestTarget then
-  -- Cast the spell without changing target
-    CastSpellByName("Greater Blessing of Kings", bestTarget)
-
-    -- Optional debug output
-    if AutoKingsDebug then
-      print("|cff00ff00[AutoKings]|r Casted on " .. bestClass .. " (" .. bestCount .. " nearby).")
-    end
-  else
-  print("|cffff0000[AutoKings]|r No valid targets in range.")
-  end
-end
-
---]]
-
-
